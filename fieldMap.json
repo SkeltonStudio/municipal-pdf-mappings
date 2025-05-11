@@ -1,5 +1,5 @@
 {
-  "BuildingSubmission2023.pdf": {
+  "1. Building Submission Form_Auto_2023.pdf": {
     "applicant_area": "GoodGovemance throJWI seivtce Excellence",
     "town_or_area": "Cape St Francis",
     "applicant_email_user": "aurelia@eliteskitravel",
@@ -24,7 +24,7 @@
     "street_address": "Street Address"
   },
 
-  "SANS10400A_Form1_2022.pdf": {
+  "12. SANS10400-A FORM 1.pdf": {
     "erf_number": "Erf No",
     "township": "Township",
     "owner_full_name": "Owner",
@@ -108,7 +108,7 @@
     "X_rational_design": "X4", "X_rational_assessment": "X5", "X_agrement": "X6"
   },
 
-  "SANS10400A_Form2_2022.pdf": {
+  "13. SANS10400-A FORM 2.pdf": {
     "erf_number": "Erf No",
     "township": "Township",
     "owner_full_name": "Owner",
@@ -162,7 +162,7 @@
     "energy_details": "ENERGY"
   },
 
-  "BuildingPlansChecklist_2022.pdf": {
+  "24. BUILDING PLANS CHECKLIST.pdf": {
     "erf_info": "Erf information As per Title deed",
     "field_2": "2",
     "work_description": "Detailed description of work  scope of work  Occupancy classification  Zoning",
@@ -183,3 +183,4 @@
     "insulation": "Insulation  roof wall floor pipes geyser"
   }
 }
+
