@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Filler App</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+        select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .error-message {
+            color: red;
+            margin-bottom: 15px;
+        }
+        .success-message {
+            color: green;
+            margin-bottom: 15px;
+        }
+        #form-fields-container div {
+            margin-bottom: 10px;
+        }
+        #form-fields-container label {
+            font-weight: bold;
+        }
+        #form-fields-container input[type="text"], #form-fields-container input[type="checkbox"] {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Filler Application</h1>
+
+        <div id="message-area"></div>
+
+        <h2>1. Select PDF Template</h2>
+        <label for="template-select">Available Templates:</label>
+        <select id="template-select" name="template_name">
+            <option value="">Loading templates...</option>
+        </select>
+
+        <h2>2. Enter Form Data</h2>
+        <p>Please provide the data to fill the PDF fields. You can use the friendly keys from the <code>fieldMap.json</code> for the selected template.</p>
+        <label for="form-data-json">Form Data (JSON format):</label>
+        <textarea id="form-data-json" placeholder=\'{
+    "owner_full_name": "Your Name Here",
+    "erf_no": "ERF12345",
+    "street_address": "123 Main St, Anytown",
+    "date_submitted": "2025-05-15",
+    "applicant_email_user": "your.email",
+    "applicant_email_domain": "example.com",
+    "scope_of_work": "New Residential Building",
+    "some_checkbox_field": true 
+}\'></textarea>
+        
+        <p>Alternatively, you can use the dynamically generated form below (experimental):</p>
+        <div id="form-fields-container"></div>
+
+        <button id="fill-pdf-button">Fill and Download PDF</button>
+    </div>
+
+    <script>
+        const templateSelect = document.getElementById("template-select");
+        const formDataJsonTextarea = document.getElementById("form-data-json");
+        const formFieldsContainer = document.getElementById("form-fields-container");
+        const fillPdfButton = document.getElementById("fill-pdf-button");
+        const messageArea = document.getElementById("message-area");
+        let fieldMap = null; // To store the full fieldMap.json content
+
+        async function fetchTemplates() {
+            try {
+                const response = await fetch("/pdf/templates");
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                templateSelect.innerHTML = 	"<option value=\"\">-- Select a Template --</option>"; // Clear loading message
+                data.templates.forEach(template => {
+                    const option = document.createElement("option");
+                    option.value = template;
+                    option.textContent = template;
+                    templateSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Error fetching templates:", error);
+                templateSelect.innerHTML = "<option value=\"\">Error loading templates</option>";
+                displayMessage("Error fetching templates: " + error.message, "error");
+            }
+        }
+
+        async function fetchFieldMap() {
+            try {
+                // Assuming fieldMap.json is a static asset served by Flask
+                // Adjust path if it is served differently or needs a dedicated endpoint
+                const response = await fetch("/static/data/fieldMap.json"); 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                fieldMap = await response.json();
+            } catch (error) {
+                console.error("Error fetching fieldMap.json:", error);
+                displayMessage("Error fetching field definitions: " + error.message, "error");
+                fieldMap = null; // Ensure it's null on error
+            }
+        }
+
+        function generateFormFields(templateName) {
+            formFieldsContainer.innerHTML = ""; // Clear previous fields
+            if (!fieldMap || !fieldMap[templateName]) {
+                const info = document.createElement("p");
+                info.textContent = "Field definitions not available for this template, or fieldMap.json not loaded. Please use the JSON input area above.";
+                formFieldsContainer.appendChild(info);
+                return;
+            }
+
+            const mappings = fieldMap[templateName];
+            for (const friendlyKey in mappings) {
+                const rawFieldName = mappings[friendlyKey];
+                const fieldDiv = document.createElement("div");
+                
+                const label = document.createElement("label");
+                label.htmlFor = `field-${friendlyKey}`;
+                label.textContent = `${friendlyKey} (PDF: ${rawFieldName}): `;
+                fieldDiv.appendChild(label);
+
+                // Basic input type detection (very simplistic)
+                // A more robust solution would involve metadata in fieldMap.json about field types
+                let inputElement;
+                if (friendlyKey.toLowerCase().includes("checkbox") || friendlyKey.toLowerCase().includes("applicable")) {
+                    inputElement = document.createElement("input");
+                    inputElement.type = "checkbox";
+                    inputElement.id = `field-${friendlyKey}`;
+                    inputElement.name = friendlyKey;
+                } else {
+                    inputElement = document.createElement("input");
+                    inputElement.type = "text";
+                    inputElement.id = `field-${friendlyKey}`;
+                    inputElement.name = friendlyKey;
+                    inputElement.placeholder = `Enter ${friendlyKey}`;
+                }
+                fieldDiv.appendChild(inputElement);
+                formFieldsContainer.appendChild(fieldDiv);
+            }
+        }
+
+        templateSelect.addEventListener("change", () => {
+            const selectedTemplate = templateSelect.value;
+            if (selectedTemplate && fieldMap) {
+                generateFormFields(selectedTemplate);
+            } else {
+                formFieldsContainer.innerHTML = "";
+            }
+        });
+
+        function getFormDataFromDynamicFields() {
+            const data = {};
+            const inputs = formFieldsContainer.querySelectorAll("input");
+            inputs.forEach(input => {
+                if (input.type === "checkbox") {
+                    data[input.name] = input.checked;
+                } else if (input.type === "text") {
+                    if (input.value.trim() !== "") {
+                        data[input.name] = input.value.trim();
+                    }
+                }
+            });
+            return        fillPdfButton.addEventListener("click", async () => {
+            const selectedTemplate = templateSelect.value;
+            if (!selectedTemplate) {
+                displayMessage("Please select a PDF template.", "error");
+                return;
+            }
+
+            let formDataInput = {}; // Renamed from formData to formDataInput for clarity
+            const dynamicFormData = getFormDataFromDynamicFields();
+            const jsonDataFromTextarea = formDataJsonTextarea.value.trim();
+
+            if (Object.keys(dynamicFormData).length > 0) {
+                formDataInput = dynamicFormData;
+                // Update textarea to reflect what's being used from dynamic fields
+                formDataJsonTextarea.value = JSON.stringify(dynamicFormData, null, 4);
+            } else if (jsonDataFromTextarea) { // Only try to parse if textarea is not empty
+                try {
+                    formDataInput = JSON.parse(jsonDataFromTextarea);
+                } catch (error) {
+                    displayMessage("Invalid JSON in Form Data: " + error.message, "error");
+                    return;
+                }
+            } else {
+                // Both dynamic form fields and textarea are empty
+                displayMessage("Form data is required. Please provide data in the JSON textarea or use the dynamic fields.", "error");
+                return;
+            }
+            
+            displayMessage("Processing...", "info");
+
+            try {
+                const response = await fetch("/pdf/fill", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ 
+                        template_name: selectedTemplate, 
+                        form_data: formDataInput // Use formDataInput
+                    }),
+                });
+
+                if (response.ok && response.headers.get("Content-Type") === "application/pdf") {
+                    const blob = await response.blob();
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `filled_${selectedTemplate}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    displayMessage("PDF generated and download started!", "success");
+                } else {
+                    const errorData = await response.json(); // Assuming error response is JSON
+                    throw new Error(errorData.error + (errorData.details ? `: ${errorData.details}` : "")); // Removed tab from error message
+                }
+            } catch (error) {
+                console.error("Error filling PDF:", error);
+                displayMessage("Error filling PDF: " + error.message, "error");
+            }
+        });essage(message, type = "info") {
+            messageArea.innerHTML = `<p class="${type}-message">${message}</p>`;
+        }
+
+        // Initial fetch
+        fetchTemplates();
+        fetchFieldMap(); // Fetch field map on page load
+
+    </script>
+</body>
+</html>
+
